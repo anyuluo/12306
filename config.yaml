@@ -1,0 +1,92 @@
+
+# 浏览器驱动配置信息
+# 浏览器驱动信息，驱动下载页：https://sites.google.com/a/chromium.org/chromedriver/downloads
+# 也可以参考这里：http://www.testclass.net/selenium_python/selenium3-browser-driver/
+driver:
+  # 浏览器驱动名称， 如：
+  # 谷歌：Chrome
+  # 火狐：firefox
+  # 苹果：Safari
+  # 欧朋：opera
+  # Edge：edge
+  # 别问我为啥没有IE, 这个问题你自己想吧。。。。
+  name: 'chrome'
+  # 浏览器驱动路径
+  path: 'E:\\Projects\\chromedriver.exe'
+
+
+
+# 配置文件请严格按照yaml语法格式书写
+info:
+  # 账号密码为空时采用二维码登录
+  12306account: '13018106521'
+  password: '12306mao'
+
+  # 出发城市， 如：上海
+  from_station: '上海'
+
+  # 到达城市， 如： 南京
+  to_station: '南京'
+
+  # 出发日期， 格式：- '2019-04-21'
+  start_date: '2019-05-20'
+
+  # 车次， 填写需要购买的车次，越靠前优先级越高，格式：
+  # - 'G3985'
+  # - 'C2221'
+  # - 'D771'
+  trains:
+    - 'C2647'
+    - 'C2649'
+
+  # 座位类型， 可选多个类型，越靠前优先级越高，例如：
+  # - '二等座'
+  # - '软卧'
+  seat_type:
+    - '二等座'
+    - '硬座'
+
+  # 乘车人， 可选多人乘车：
+  # - name: '刘禅'
+  #   ticket_type: '儿童票'
+  # - name: '岳飞'
+  #   ticket_type: '学生票'
+  # - name: '金庸'
+  #   ticket_type: '成人票'
+  # - name: '周公'
+  #   ticket_type: '残军票'
+  # 注：学生票的乘车时间为每年的暑假6月1日至9月30日、寒假12月1日至3月31日，请人确认是否能购买学生票
+  passengers:
+    - name: '毛加劲'
+      ticket_type: '成人票'
+    - name: '张阳海'
+      ticket_type: '成人票'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
