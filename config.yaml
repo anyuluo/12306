@@ -58,9 +58,9 @@ info:
   #   ticket_type: '残军票'
   # 注：学生票的乘车时间为每年的暑假6月1日至9月30日、寒假12月1日至3月31日，请人确认是否能购买学生票
   passengers:
-    - name: '毛加劲'
+    - name: 'anyu'
       ticket_type: '成人票'
-    - name: '张阳海'
+    - name: 'anyu'
       ticket_type: '成人票'
 
 
