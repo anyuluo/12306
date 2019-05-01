@@ -102,7 +102,7 @@ class BuyTicket:
         self.login_url = 'https://kyfw.12306.cn/otn/resources/login.html'  # 登录页面
         self.my_index_url = 'https://kyfw.12306.cn/otn/view/index.html'  # 登录成功页面
         self.ticket_url = 'https://kyfw.12306.cn/otn/leftTicket/init?linktypeid=dc'  # 购票首页
-        self.reserve_url = 'https://kyfw.12306.cn/otn/leftTicket/init?linktypeid=dc&'  # 车票预定页面
+        self.reserve_url = 'https://kyfw.12306.cn/otn/confirmPassenger/initDc'  # 车票预定页面
         self.show_ticket_message_url = 'https://kyfw.12306.cn/otn//payOrder/init'  # 显示车票信息url
 
         self.driver_info = get_config('driver')  # 获取驱动信息
@@ -131,6 +131,7 @@ class BuyTicket:
             self.web_driver.find_element_by_xpath('//ul/li[@class="login-hd-account"]/a').click()  # 模拟点击账号登录
             time.sleep(0.2)
             self.web_driver.find_element_by_id('J-userName').send_keys(self.account)  # 填写账户
+            time.sleep(1)
             self.web_driver.find_element_by_id('J-password').send_keys(self.password)  # 填写密码
 
             print('请手动识别验证码！完成后请点击登录。如果登录失败，请扫码登录')
@@ -150,27 +151,29 @@ class BuyTicket:
         """  查询车票  """
 
         # 访问查票页面
-        self.web_driver.get(
-            self.ticket_url + '&fs={}&ts={}&date={}&flag=N,N,Y'.format(get_station_info(self.from_station),
-                                                                       get_station_info(self.to_station),
-                                                                       self.from_data))
-
+        search_ticket_url = self.ticket_url + '&fs={}&ts={}&date={}&flag=N,N,Y'.format(
+            get_station_info(self.from_station),
+            get_station_info(self.to_station),
+            self.from_data)
+        self.web_driver.get(search_ticket_url)
         time.sleep(2)  #
         # # 将出发地、到达地、出发日期等信息加载到cookie中
         # self.web_driver.add_cookie({'name': '_jc_save_fromStation', 'value': self.from_station})
         # self.web_driver.add_cookie({'name': '_jc_save_toStation', 'value': self.to_station})
         # self.web_driver.add_cookie({'name': '_jc_save_fromDate', 'value': self.from_data})
 
-        self.web_driver.refresh()
-        time.sleep(2)  # 等待页面加载
         print('开始查询车票。。。')
         count = 0  # 记录查询次数
         while True:
-            count += 1
-            print('正在进行第{}次查询。。。'.format(count))
-            self.web_driver.find_element_by_id('query_ticket').click()
-            time.sleep(1)
             try:
+                count += 1
+                print('正在进行第{}次查询。。。'.format(count))
+                if self.ticket_url in self.web_driver.current_url:
+                    self.web_driver.find_element_by_id('query_ticket').click()  # 点击查询车票
+                else:
+                    self.web_driver.get(search_ticket_url)  # 不在查询页面的情况
+                time.sleep(1)
+
                 for train in self.trains:
                     print('开始查询车次：{}'.format(train))
                     # preceding-sibling：选取当前节点之前的所有某同级节点
@@ -182,7 +185,7 @@ class BuyTicket:
                         for seat in self.seat_type:
                             # 依次查看用户配置的系别是否有票
                             if train_tr.find_element_by_xpath('.//td[{}]'.format(seat['seat_type_index'])).text == '--':
-                                print('当前车次：{} 暂无席别：{}'.format(train, seat))
+                                print('当前车次：{} 暂无席别：{}'.format(train, seat['seat_type']))
                             elif train_tr.find_element_by_xpath(
                                     './/td[{}]'.format(seat['seat_type_index'])).text == '无':
                                 print('当前车次：{} 席别：{} 无票， 正在为您检测其他席别或车次。。。'.format(train, seat['seat_type']))
@@ -190,7 +193,7 @@ class BuyTicket:
                                 print('当前车次：{} 席别：{} 有票， 正在为您预定车票'.format(train, seat['seat_type']))
                                 # 这里开始预定车票
                                 train_tr.find_element_by_xpath('.//a[@class="btn72"]').click()
-                                time.sleep(0.8)
+                                time.sleep(1)
                                 self.reserve_ticket(seat)  # 开始预定车票
 
                     else:
@@ -200,6 +203,9 @@ class BuyTicket:
 
             except Exception as e:
                 print('出现异常情况，异常信息：', e)
+                # 发生异常情况， 可能出现网络延迟或12306服务器压力过大导致页面加载时间过长
+                # 遇到异常情况时等待1s后继续尝试
+                time.sleep(1)
 
             # 所有车次无效时退出程序
             if not self.trains:
@@ -216,18 +222,31 @@ class BuyTicket:
 
         if self.web_driver.current_url == self.reserve_url:
             print('开始选择乘客。。。')
+            num = 0  # 用于记录乘客序号
             for passenger in self.passengers:
-                num = 0  # 用于记录乘客序号
+                # 乘客序号 +1
                 num += 1
                 try:
                     self.web_driver.find_element_by_xpath(
                         '//label[contains(text(), "{}")]'.format(passenger['name'])).click()  # 选择乘客
                     time.sleep(0.1)
-                    # 处理确认的弹框信息
-                    alert = self.web_driver.switch_to_alert()
-                    if alert:
-                        alert.accept()
-                        time.sleep(0.1)
+                    try:
+                        # 处理确认的弹框信息
+                        alert = self.web_driver.find_element_by_id('qd_closeDefaultWarningWindowDialog_id')
+                        if alert:
+                            alert.click()
+                            time.sleep(0.1)
+                    except Exception as e:
+                        pass
+
+                    # 选择票种
+                    if passenger['ticket_type'] != '成人票':
+                        self.web_driver.find_element_by_xpath(
+                            '//select[@id="ticketType_{}"]/option[contains(text(),"{}")]'.format(num, passenger[
+                                'ticket_type'])).click()
+                        print('已经为乘客："{}"选择票种："{}"。。。'.format(passenger, passenger['ticket_type']))
+                        # 处理温馨提示消息消息
+                        self.web_driver.find_elements_by_xpath('//a[@class="btn92s"]')[-1].click()
 
                     # 选择席别
                     print('开始为乘客："{}"选择席别。。。'.format(passenger))
@@ -242,6 +261,7 @@ class BuyTicket:
             # 提交订单
             print('正在提交订单。。。')
             self.web_driver.find_element_by_id('submitOrder_id').click()
+            time.sleep(0.5)
             # 确认提交订单
             qr_submit = self.web_driver.find_element_by_id('qr_submit_id')
             if qr_submit:
