@@ -14,7 +14,8 @@ def get_config(key):
     return data
 
 
-if __name__ == '__main__':
-    for passenger in get_config('info')['passengers']:
-        print(passenger['name'])
-        print(passenger['ticket_type'])
+# if __name__ == '__main__':
+#     for passenger in get_config('info')['passengers']:
+#         print(passenger['name'])
+#         print(passenger['ticket_type'])
+print(get_config('email'))

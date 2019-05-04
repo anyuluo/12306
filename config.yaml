@@ -64,22 +64,40 @@ info:
       ticket_type: '成人票'
 
 
+# 配置邮箱
+email:
+  # 是否开启邮箱提醒, False为关闭，True为开启
+  flag: False
+
+  # 连接邮箱的服务器名称
+  host: 'smtp.qq.com'
+
+  # 端口号
+  port: 578
+
+  # 发件邮箱号, 可以使用qq邮箱
+  sender_account: '2916265470@qq.com'
+
+  # 不是登陆密码，是客户端授权密码
+  password: 'kvyjkfqodzasdgig'
+
+  # 发件人
+  sender: '12306购票'
+
+  # 接收者
+  receiver: '2916265470@qq.com'
+
+  # 邮件主题
+  subject: '12306订票成功通知'
+
+  # 抢票成功提示信息, 即您要发送到邮箱的提示消息
+  message: '恭喜您！已为您成功订票，请及时前往12306支付，订单将在30分钟后失效！'
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# 配置微信提醒
+wx:
+  # 是否开启微信提醒, False为关闭，True为开启
+  flag: False
 
 
 

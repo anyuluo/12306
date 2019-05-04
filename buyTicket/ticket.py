@@ -3,6 +3,8 @@ from common.get_station import get_station_info
 from selenium import webdriver
 import time
 
+from inform.send_email import send_email
+
 
 class BuyTicket:
     """
@@ -157,10 +159,6 @@ class BuyTicket:
             self.from_data)
         self.web_driver.get(search_ticket_url)
         time.sleep(2)  #
-        # # 将出发地、到达地、出发日期等信息加载到cookie中
-        # self.web_driver.add_cookie({'name': '_jc_save_fromStation', 'value': self.from_station})
-        # self.web_driver.add_cookie({'name': '_jc_save_toStation', 'value': self.to_station})
-        # self.web_driver.add_cookie({'name': '_jc_save_fromDate', 'value': self.from_data})
 
         print('开始查询车票。。。')
         count = 0  # 记录查询次数
@@ -279,6 +277,20 @@ class BuyTicket:
                 else:
                     # 订单生成失败
                     return
+
+    def inform(self):
+        """  通知用户  """
+        '''邮件通知'''
+        email = get_config('email')
+        if email['flag'] == 'True':
+            try:
+                send_email(email)
+                print('邮件通知发送成功！')
+            except Exception as e:
+                print('邮件通知发送失败！')
+                print('发送邮件时发生异常：', e)
+
+        '''微信通知'''
 
 
 if __name__ == '__main__':
