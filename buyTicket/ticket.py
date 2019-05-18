@@ -1,5 +1,5 @@
 from common.get_config import get_config
-from common.get_station import get_station_info
+from common.get_station import Station
 from selenium import webdriver
 import time
 
@@ -15,6 +15,7 @@ class BuyTicket:
         data = get_config('info')  # 获取用户信息
         self.account = data['12306account']
         self.password = data['password']
+        self.interval = data['interval']
         self.from_station = data['from_station']
         self.to_station = data['to_station']
         self.from_data = data['start_date']
@@ -106,6 +107,7 @@ class BuyTicket:
         self.ticket_url = 'https://kyfw.12306.cn/otn/leftTicket/init?linktypeid=dc'  # 购票首页
         self.reserve_url = 'https://kyfw.12306.cn/otn/confirmPassenger/initDc'  # 车票预定页面
         self.show_ticket_message_url = 'https://kyfw.12306.cn/otn//payOrder/init'  # 显示车票信息url
+        self.active_order_url = 'https://kyfw.12306.cn/otn/view/train_order.html'  # 未完成订单url
 
         self.driver_info = get_config('driver')  # 获取驱动信息
         if self.driver_info['name'].lower() == 'chrome':
@@ -128,12 +130,12 @@ class BuyTicket:
 
         # 访问登录页面
         self.web_driver.get(self.login_url)
-        time.sleep(1)  # 等待加载网页
+        time.sleep(self.interval)  # 等待加载网页
         if self.account != '' and self.password != '':  # 账户密码不为空时自动填写
             self.web_driver.find_element_by_xpath('//ul/li[@class="login-hd-account"]/a').click()  # 模拟点击账号登录
             time.sleep(0.2)
             self.web_driver.find_element_by_id('J-userName').send_keys(self.account)  # 填写账户
-            time.sleep(1)
+            time.sleep(0.2)
             self.web_driver.find_element_by_id('J-password').send_keys(self.password)  # 填写密码
 
             print('请手动识别验证码！完成后请点击登录。如果登录失败，请扫码登录')
@@ -145,7 +147,11 @@ class BuyTicket:
             if self.web_driver.current_url == self.my_index_url:
                 break
             else:
-                time.sleep(1)
+                time.sleep(self.interval)
+        # 登录成功，检查是否存在未完成订单
+        # if self.check_active_order():
+        #     print('您存在未完成订单！请前往12306官网处理后在开启。')
+        #     return
         # 登录成功，开始查询车票
         self.search_ticket()
 
@@ -153,12 +159,19 @@ class BuyTicket:
         """  查询车票  """
 
         # 访问查票页面
+        # 从station.txt文件中读取站点信息，不具备实时更新站点信息功能，不在推荐使用
+        # search_ticket_url = self.ticket_url + '&fs={}&ts={}&date={}&flag=N,N,Y'.format(
+        #     get_station_info(self.from_station),
+        #     get_station_info(self.to_station),
+        #     self.from_data)
+
+        # 访问查票页面
         search_ticket_url = self.ticket_url + '&fs={}&ts={}&date={}&flag=N,N,Y'.format(
-            get_station_info(self.from_station),
-            get_station_info(self.to_station),
+            Station.get_station_info(self.from_station),
+            Station.get_station_info(self.to_station),
             self.from_data)
         self.web_driver.get(search_ticket_url)
-        time.sleep(2)  #
+        time.sleep(self.interval)  #
 
         print('开始查询车票。。。')
         count = 0  # 记录查询次数
@@ -170,7 +183,7 @@ class BuyTicket:
                     self.web_driver.find_element_by_id('query_ticket').click()  # 点击查询车票
                 else:
                     self.web_driver.get(search_ticket_url)  # 不在查询页面的情况
-                time.sleep(1)
+                time.sleep(self.interval)
 
                 for train in self.trains:
                     print('开始查询车次：{}'.format(train))
@@ -191,7 +204,21 @@ class BuyTicket:
                                 print('当前车次：{} 席别：{} 有票， 正在为您预定车票'.format(train, seat['seat_type']))
                                 # 这里开始预定车票
                                 train_tr.find_element_by_xpath('.//a[@class="btn72"]').click()
-                                time.sleep(1)
+                                # 处理未完成订单弹窗，在订单已生成且订单确认失败的情况下会弹出订单未完成提示弹窗
+                                try:
+                                    # 处理确认的弹框信息
+                                    alert = self.web_driver.find_element_by_id('qd_closeDefaultWarningWindowDialog_id')
+                                    if alert:
+                                        alert.click()
+                                        time.sleep(0.1)
+                                        print('已成功生成订单！请及时前往处理。。。')
+                                        self.flag = True  # 标志位设为True
+                                        break  # 结束循环
+
+                                except Exception as e:
+                                    pass
+
+                                time.sleep(self.interval)
                                 self.reserve_ticket(seat)  # 开始预定车票
 
                     else:
@@ -202,8 +229,8 @@ class BuyTicket:
             except Exception as e:
                 print('出现异常情况，异常信息：', e)
                 # 发生异常情况， 可能出现网络延迟或12306服务器压力过大导致页面加载时间过长
-                # 遇到异常情况时等待1s后继续尝试
-                time.sleep(1)
+                # 遇到异常情况时等待一个时间间隔后继续尝试
+                time.sleep(self.interval)
 
             # 所有车次无效时退出程序
             if not self.trains:
@@ -213,6 +240,8 @@ class BuyTicket:
                 break
             # 订票成功
             if self.flag:
+                # 订票成功，调用邮件通知
+                self.inform()
                 break
 
     def reserve_ticket(self, seat):
@@ -242,19 +271,19 @@ class BuyTicket:
                         self.web_driver.find_element_by_xpath(
                             '//select[@id="ticketType_{}"]/option[contains(text(),"{}")]'.format(num, passenger[
                                 'ticket_type'])).click()
-                        print('已经为乘客："{}"选择票种："{}"。。。'.format(passenger, passenger['ticket_type']))
+                        print('已经为乘客："{}"选择票种："{}"。。。'.format(passenger['name'], passenger['ticket_type']))
                         # 处理温馨提示消息消息
                         self.web_driver.find_elements_by_xpath('//a[@class="btn92s"]')[-1].click()
 
                     # 选择席别
-                    print('开始为乘客："{}"选择席别。。。'.format(passenger))
+                    print('开始为乘客："{}"选择席别："{}"。。。'.format(passenger['name'], passenger['ticket_type']))
                     self.web_driver.find_element_by_xpath(
                         '//select[@id="seatType_{}"]/option[@value="{}"]'.format(num, seat['seat_type_value'])).click()
                     time.sleep(0.1)
 
                 except Exception as e:
-                    print('在选择乘客：{}时发生异常：'.format(passenger), e)
-                    print('请确认您在12306官网是否录入“{}”乘客的相关信息。。。'.format(passenger))
+                    print('在选择乘客：{}时发生异常：'.format(passenger['name']), e)
+                    print('请确认您在12306官网是否录入“{}”乘客的相关信息。。。'.format(passenger['name']))
 
             # 提交订单
             print('正在提交订单。。。')
@@ -268,30 +297,47 @@ class BuyTicket:
                 print('提交失败！')
                 return
 
-            time.sleep(2)
-            # 返回确认订单是否提交成功
-            if self.show_ticket_message_url in self.web_driver.current_url:
-                if self.web_driver.find_element_by_id('show_ticket_message'):
-                    # 订单提交成功
-                    self.flag = True
-                else:
-                    # 订单生成失败
-                    return
+            time.sleep(self.interval)
+            # # 返回确认订单是否提交成功
+            # if self.show_ticket_message_url in self.web_driver.current_url:
+            #     if self.web_driver.find_element_by_id('show_ticket_message'):
+            #         # 订单提交成功
+            #         self.flag = True
+            #     else:
+            #         # 订单生成失败
+            #         return
+
+            # 返回查看是否存在未完成订单
+            if self.check_active_order():
+                print('订单已生成！请及时前往支付。')
+                self.flag = True
+            else:
+                print('订单生成失败！正在为您返回查询。。。。')
+                return
+
+    def check_active_order(self):
+        """  检查订单是否存在未完成订单  """
+        self.web_driver.get(self.active_order_url)  # 访问未完成订单页面
+        time.sleep(self.interval)
+        try:
+            if self.web_driver.find_element_by_xpath('//div/a[@id="countdown0"]'):
+                return True  # 存在未完成订单，返回true
+            else:
+                return False
+        except Exception as e:
+            return False
 
     def inform(self):
         """  通知用户  """
         '''邮件通知'''
         email = get_config('email')
-        if email['flag'] == 'True':
+        if email['flag'] == True:
             try:
                 send_email(email)
                 print('邮件通知发送成功！')
             except Exception as e:
                 print('邮件通知发送失败！')
                 print('发送邮件时发生异常：', e)
-
-        '''微信通知'''
-
-
-if __name__ == '__main__':
-    BuyTicket().login()
+                print('请尽快前往12306官网支付订单！订单将在半小时后过期。')
+        else:
+            print('您没有开启邮箱通知功能，请尽快前往12306官网支付订单！订单将在半小时后过期。')
